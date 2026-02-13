@@ -19,6 +19,8 @@ public class PrincipalSrv extends javax.swing.JFrame {
     private Socket clientSocket;
     private BufferedReader in;
     private PrintWriter out;
+    private int contadorClientes = 0;
+
 
     /**
      * Creates new form Principal1
@@ -92,16 +94,17 @@ public class PrincipalSrv extends javax.swing.JFrame {
                     serverSocket = new ServerSocket( PORT);
                     mensajesTxt.append("Servidor TCP en ejecución: "+ addr + " ,Puerto " + serverSocket.getLocalPort()+ "\n");
                     while (true) {
-                        clientSocket = serverSocket.accept();
-                        in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                        String linea;
-                        out = new PrintWriter(clientSocket.getOutputStream(), true);
-                        while ((linea = in.readLine()) != null) {
-                            mensajesTxt.append("Cliente: " + linea + "\n");
-                            out.println("Mensaje recibido en el server " );
-                        }
+                        Socket cliente = serverSocket.accept();
 
+                        contadorClientes++;
+                        int numeroCliente = contadorClientes;
+
+                        mensajesTxt.append("Cliente " + numeroCliente + " conectado\n");
+
+                        new Thread(() -> manejarCliente(cliente, numeroCliente)).start();
                     }
+
+
                 } catch (IOException ex) {
                     ex.printStackTrace();
                     mensajesTxt.append("Error en el servidor: " + ex.getMessage() + "\n");
@@ -109,6 +112,28 @@ public class PrincipalSrv extends javax.swing.JFrame {
             }
         }).start();
     }
+
+    private void manejarCliente(Socket cliente, int numeroCliente) {
+        try {
+            BufferedReader in = new BufferedReader(
+                    new InputStreamReader(cliente.getInputStream()));
+
+            PrintWriter out = new PrintWriter(
+                    cliente.getOutputStream(), true);
+
+            String linea;
+
+            while ((linea = in.readLine()) != null) {
+                mensajesTxt.append("Cliente " + numeroCliente + ": " + linea + "\n");
+                out.println("Mensaje recibido en el servidor");
+            }
+
+        } catch (IOException e) {
+            mensajesTxt.append("Cliente " + numeroCliente + " desconectado\n");
+        }
+    }
+
+
 
     // Variables declaration - do not modify
     private javax.swing.JButton bIniciar;
