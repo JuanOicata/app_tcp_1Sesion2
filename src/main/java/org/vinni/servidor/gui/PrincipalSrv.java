@@ -9,7 +9,8 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-
+import java.util.List;
+import java.util.ArrayList;
 /**
  * Author: Vinni
  */
@@ -20,6 +21,9 @@ public class PrincipalSrv extends javax.swing.JFrame {
     private BufferedReader in;
     private PrintWriter out;
     private int contadorClientes = 0;
+
+    private List<PrintWriter> clientes =
+            java.util.Collections.synchronizedList(new ArrayList<>());
 
 
     /**
@@ -99,10 +103,16 @@ public class PrincipalSrv extends javax.swing.JFrame {
                         contadorClientes++;
                         int numeroCliente = contadorClientes;
 
+                        PrintWriter out = new PrintWriter(
+                                cliente.getOutputStream(), true);
+
+                        clientes.add(out); // ← AGREGAMOS A LA LISTA
+
                         mensajesTxt.append("Cliente " + numeroCliente + " conectado\n");
 
-                        new Thread(() -> manejarCliente(cliente, numeroCliente)).start();
+                        new Thread(() -> manejarCliente(cliente, numeroCliente, out)).start();
                     }
+
 
 
                 } catch (IOException ex) {
@@ -113,23 +123,35 @@ public class PrincipalSrv extends javax.swing.JFrame {
         }).start();
     }
 
-    private void manejarCliente(Socket cliente, int numeroCliente) {
+    private void manejarCliente(Socket cliente, int numeroCliente, PrintWriter out) {
         try {
             BufferedReader in = new BufferedReader(
                     new InputStreamReader(cliente.getInputStream()));
 
-            PrintWriter out = new PrintWriter(
-                    cliente.getOutputStream(), true);
-
             String linea;
 
             while ((linea = in.readLine()) != null) {
-                mensajesTxt.append("Cliente " + numeroCliente + ": " + linea + "\n");
-                out.println("Mensaje recibido en el servidor");
+
+                String mensaje = "Cliente " + numeroCliente + ": " + linea;
+
+                mensajesTxt.append(mensaje + "\n");
+
+                // 🔹 BROADCAST
+                enviarATodos(mensaje);
             }
 
         } catch (IOException e) {
             mensajesTxt.append("Cliente " + numeroCliente + " desconectado\n");
+        } finally {
+            clientes.remove(out);
+        }
+    }
+
+    private void enviarATodos(String mensaje) {
+        synchronized (clientes) {
+            for (PrintWriter cliente : clientes) {
+                cliente.println(mensaje);
+            }
         }
     }
 
