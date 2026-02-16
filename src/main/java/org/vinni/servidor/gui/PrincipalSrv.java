@@ -11,6 +11,9 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
+
 /**
  * Author: Vinni
  */
@@ -22,8 +25,9 @@ public class PrincipalSrv extends javax.swing.JFrame {
     private PrintWriter out;
     private int contadorClientes = 0;
 
-    private List<PrintWriter> clientes =
-            java.util.Collections.synchronizedList(new ArrayList<>());
+    private Map<Integer, PrintWriter> clientes =
+            java.util.Collections.synchronizedMap(new HashMap<>());
+
 
 
     /**
@@ -106,12 +110,15 @@ public class PrincipalSrv extends javax.swing.JFrame {
                         PrintWriter out = new PrintWriter(
                                 cliente.getOutputStream(), true);
 
-                        clientes.add(out); // ← AGREGAMOS A LA LISTA
+                        clientes.put(numeroCliente, out);
 
                         mensajesTxt.append("Cliente " + numeroCliente + " conectado\n");
 
-                        new Thread(() -> manejarCliente(cliente, numeroCliente, out)).start();
+                        out.println("Conectado como Cliente " + numeroCliente);
+
+                        new Thread(() -> manejarCliente(cliente, numeroCliente)).start();
                     }
+
 
 
 
@@ -123,7 +130,7 @@ public class PrincipalSrv extends javax.swing.JFrame {
         }).start();
     }
 
-    private void manejarCliente(Socket cliente, int numeroCliente, PrintWriter out) {
+    private void manejarCliente(Socket cliente, int numeroCliente) {
         try {
             BufferedReader in = new BufferedReader(
                     new InputStreamReader(cliente.getInputStream()));
@@ -132,28 +139,53 @@ public class PrincipalSrv extends javax.swing.JFrame {
 
             while ((linea = in.readLine()) != null) {
 
-                String mensaje = "Cliente " + numeroCliente + ": " + linea;
+                // Formato esperado: destino:mensaje
+                String[] partes = linea.split(":", 2);
 
-                mensajesTxt.append(mensaje + "\n");
+                if (partes.length == 2) {
+                    int destino = Integer.parseInt(partes[0]);
+                    String mensaje = partes[1];
 
-                // 🔹 BROADCAST
-                enviarATodos(mensaje);
+                    enviarACliente(destino,
+                            "Cliente " + numeroCliente + " dice: " + mensaje);
+
+                    mensajesTxt.append(
+                            "Cliente " + numeroCliente +
+                                    " → Cliente " + destino + ": " + mensaje + "\n"
+                    );
+                } else {
+                    mensajesTxt.append("Formato inválido de Cliente " + numeroCliente + "\n");
+                }
             }
 
-        } catch (IOException e) {
+        } catch (Exception e) {
             mensajesTxt.append("Cliente " + numeroCliente + " desconectado\n");
         } finally {
-            clientes.remove(out);
+            clientes.remove(numeroCliente);
         }
     }
 
-    private void enviarATodos(String mensaje) {
+    private void enviarACliente(int destino, String mensaje) {
+
+        synchronized (clientes) {
+            PrintWriter clienteDestino = clientes.get(destino);
+
+            if (clienteDestino != null) {
+                clienteDestino.println(mensaje);
+            } else {
+                mensajesTxt.append("Cliente destino no existe\n");
+            }
+        }
+    }
+
+
+    /*private void enviarATodos(String mensaje) {
         synchronized (clientes) {
             for (PrintWriter cliente : clientes) {
                 cliente.println(mensaje);
             }
         }
-    }
+    }*/
 
 
 

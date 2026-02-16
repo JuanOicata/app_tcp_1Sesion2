@@ -7,7 +7,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-/**
+/**x
  * author: Vinni 2024
  */
 public class PrincipalCli extends javax.swing.JFrame {
